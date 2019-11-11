@@ -49,8 +49,12 @@ bool showUI = false;
 // Models
 Model* cityModel = nullptr;
 Model* carModel = nullptr;
+Model* car2Model = nullptr;
 Model* groundModel = nullptr;
 mat4 carModelMatrix(1.0f);
+mat4 car2ModelMatrix(1.0f);
+
+
 
 vec3 worldUp = vec3(0.0f, 1.0f, 0.0f);
 
@@ -66,6 +70,7 @@ void loadModels()
 	///////////////////////////////////////////////////////////////////////////
 	cityModel = loadModelFromOBJ("../scenes/city.obj");
 	carModel = loadModelFromOBJ("../scenes/car.obj");
+	car2Model = loadModelFromOBJ("../scenes/car.obj");
 	groundModel = loadModelFromOBJ("../scenes/ground_plane.obj");
 }
 
@@ -140,6 +145,10 @@ void display()
 	glUniformMatrix4fv(loc, 1, false, &modelViewProjectionMatrix[0].x);
 	render(carModel);
 
+	// car 2
+	modelViewProjectionMatrix = projectionMatrix * viewMatrix * car2ModelMatrix;
+	glUniformMatrix4fv(loc, 1, false, &modelViewProjectionMatrix[0].x);
+	render(car2Model);
 
 	glUseProgram(0);
 }
@@ -254,25 +263,52 @@ int main(int argc, char* argv[])
 		// check keyboard state (which keys are still pressed)
 		const uint8_t* state = SDL_GetKeyboardState(nullptr);
 
+		float speed = 10.0f;
+		float rotateSpeed = 5.0f;
+		
+		
 		// implement camera controls based on key states
 		if(state[SDL_SCANCODE_UP])
 		{
 			printf("Key Up is pressed down\n");
+			T[3] += R * speed * deltaTime * vec4(0.0f, 0.0f, 1.0f, 0.0f);
 		}
 		if(state[SDL_SCANCODE_DOWN])
 		{
 			printf("Key Down is pressed down\n");
+			T[3] -= R * speed * deltaTime * vec4(0.0f, 0.0f, 1.0f, 0.0f);
 		}
 		if(state[SDL_SCANCODE_LEFT])
 		{
 			printf("Key Left is pressed down\n");
+			R[0] -= rotateSpeed * deltaTime * R[2];
+			//T[3] += R * speed * deltaTime * vec4(1.0f, 0.0f, 0.0f, 0.0f);
 		}
 		if(state[SDL_SCANCODE_RIGHT])
 		{
 			printf("Key Right is pressed down\n");
+			R[0] += rotateSpeed * deltaTime * R[2];
+			//T[3] -= R * speed * deltaTime * vec4(1.0f, 0.0f, 0.0f, 0.0f);	
 		}
-	}
 
+
+		// Make R orthonormal again
+		R[0] = normalize(R[0]);
+		R[2] = vec4(cross(vec3(R[0]),vec3(R[1])), 0.0f);
+
+		// Concatenate Rotation and Translation
+		carModelMatrix = T * R;
+		
+		// Car 2 Movement/Animation
+		// Rotation matrix
+		mat4 R2 = rotate(-currentTime, vec3(0.0f,1.0f,0.0f));
+		// Transformation matrix
+		mat4 T2 = translate(vec3(5.0f, 0.0f, 0.0f));
+		T2[3] = vec4(R2 * T2[3]);
+
+		car2ModelMatrix = T2 * R2;
+	}
+	
 	// Shut down everything. This includes the window and all other subsystems.
 	labhelper::shutDown(g_window);
 	return 0;
