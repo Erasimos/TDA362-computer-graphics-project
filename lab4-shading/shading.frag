@@ -64,16 +64,17 @@ vec3 calculateDirectIllumiunation(vec3 wo, vec3 n, vec3 base_color)
 	///////////////////////////////////////////////////////////////////////////
 
 	// distanceVector to light source
-	vec3 distVec = viewSpacePosition - viewSpaceLightPosition;
+	vec3 distVec = viewSpaceLightPosition - viewSpacePosition;
 	// distance from fragment to light source
 	float d = length(distVec);
 	// Incoming radiance
-	vec3 Li = point_light_intensity_multiplier * point_light_color * (1/(d*d));
+	vec3 Li = point_light_intensity_multiplier * point_light_color * (1.0/(d*d));
 	vec3 Wi = normalize(distVec);
-	float nWi = dot(Wi,n);
-	
+	float ndotwo = max(0.0, dot(n, wo));
+	float ndotwi = max(0.0, dot(n, Wi));
+	float denom = (4.0*ndotwo*ndotwi);
 	// Return black if not visible
-	if(nWi <= 0) { vec3(0.0,0.0,0.0); }
+	if(denom <= 0.0) { return vec3(0.0); }
 	
 
 	
@@ -81,17 +82,48 @@ vec3 calculateDirectIllumiunation(vec3 wo, vec3 n, vec3 base_color)
 		///////////////////////////////////////////////////////////////////////////
 		// Task 1.3 - Calculate the diffuse term and return that as the result
 		///////////////////////////////////////////////////////////////////////////
-	vec3 diffuse_term = material_color * (1.0/PI) * abs(nWi) * Li; 
+	vec3 diffuse_term = material_color * (1.0/PI) * abs(ndotwi) * Li; 
 
 	///////////////////////////////////////////////////////////////////////////
 	// Task 2 - Calculate the Torrance Sparrow BRDF and return the light
 	//          reflected from that instead
 	///////////////////////////////////////////////////////////////////////////
+	
+
+	// Wh
+	vec3 Wh = normalize(Wi + wo);	
+	float wodotwh = max(0.0, dot(wo, Wh));
+	float ndotwh = max(0.0, dot(n, Wh));
+
+	// The fresnel term
+	float R0 = material_fresnel;
+	float F = R0 + (1.0 - R0)*pow((1.0 - wodotwh),5.0);
+
+	// Microfacet distribution
+	float s = material_shininess;
+	float D = ((s+2.0)/(2.0*PI))*pow(ndotwh,s);
+
+	// A
+	float A = 2.0*ndotwh*ndotwo/wodotwh;
+
+	// B
+	float B = 2.0*ndotwh*ndotwi/wodotwh;
+
+	// Shadowing/Masking function
+	float G = min(1.0,min(A,B));
+
+	// brdf
+	float brdf = F*D*G/denom;	
+
 	///////////////////////////////////////////////////////////////////////////
 	// Task 3 - Make your shader respect the parameters of our material model.
 	///////////////////////////////////////////////////////////////////////////
 
-	return diffuse_term;
+	//return diffuse_term;
+	return brdf * ndotwi * Li;
+
+	// for testing
+	//return vec3();
 }
 
 vec3 calculateIndirectIllumination(vec3 wo, vec3 n, vec3 base_color)
@@ -139,7 +171,7 @@ void main()
 	///////////////////////////////////////////////////////////////////////////
 	// Task 1.4 - Make glowy things glow!
 	///////////////////////////////////////////////////////////////////////////
-	vec3 emission_term = vec3(0.0);
+	vec3 emission_term = material_emission * material_color;
 
 	vec3 final_color = direct_illumination_term + indirect_illumination_term + emission_term;
 

@@ -68,7 +68,7 @@ vec3 point_light_color = vec3(1.f, 1.f, 1.f);
 vec3 cameraPosition(-30.0f, 10.0f, 30.0f);
 vec3 cameraDirection = normalize(vec3(0.0f) - cameraPosition);
 vec3 worldUp(0.0f, 1.0f, 0.0f);
-const std::string model_filename = "../scenes/NewShip.obj";
+const std::string model_filename = "../scenes/materialtest.obj";
 ///////////////////////////////////////////////////////////////////////////////
 
 
