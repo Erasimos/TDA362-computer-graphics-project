@@ -293,13 +293,13 @@ int main(int argc, char* argv[])
 		{
 			printf("Key Left is pressed down\n");
 			R[0] -= rotateSpeed * deltaTime * R[2];
-			//T[3] += R * speed * deltaTime * vec4(1.0f, 0.0f, 0.0f, 0.0f);
+			T[3] += R * speed * deltaTime * vec4(1.0f, 0.0f, 0.0f, 0.0f);
 		}
 		if(state[SDL_SCANCODE_RIGHT])
 		{
 			printf("Key Right is pressed down\n");
 			R[0] += rotateSpeed * deltaTime * R[2];
-			//T[3] -= R * speed * deltaTime * vec4(1.0f, 0.0f, 0.0f, 0.0f);	
+			T[3] -= R * speed * deltaTime * vec4(1.0f, 0.0f, 0.0f, 0.0f);	
 		}
 
 		// Camera movement
