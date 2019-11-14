@@ -118,12 +118,24 @@ vec3 calculateDirectIllumiunation(vec3 wo, vec3 n, vec3 base_color)
 	///////////////////////////////////////////////////////////////////////////
 	// Task 3 - Make your shader respect the parameters of our material model.
 	///////////////////////////////////////////////////////////////////////////
+	
+	// Dielectric term
+	vec3 dielectric_term = brdf * ndotwi * Li + (1-F) * diffuse_term;
 
+	// Metal term 
+	vec3 metal_term = brdf * material_color * ndotwi * Li;
+
+	// Microfacet term
+	float m = material_metalness;
+	vec3 micro_facet_term = m * metal_term + (1 - m) * dielectric_term;
+
+	float r = material_reflectivity;
 	//return diffuse_term;
-	return brdf * ndotwi * Li;
+	//return brdf * ndotwi * Li;
+	return r * micro_facet_term + (1 - r) * diffuse_term;
 
-	// for testing
-	//return vec3();
+
+	
 }
 
 vec3 calculateIndirectIllumination(vec3 wo, vec3 n, vec3 base_color)
