@@ -146,12 +146,39 @@ vec3 calculateIndirectIllumination(vec3 wo, vec3 n, vec3 base_color)
 	//          the diffuse reflection
 	///////////////////////////////////////////////////////////////////////////
 
+	// World space normal
+	vec3 nws = vec3 (viewInverse * vec4(n,1.0f));
+
+
+	// Calculate the world-space position of this fragment on the near plane
+	vec4 pixel_world_pos = viewInverse * vec4(texCoord * 2.0 - 1.0, 1.0, 1.0);
+	pixel_world_pos = (1.0 / pixel_world_pos.w) * pixel_world_pos;
+
+	// Calculate the world-space direction from the camera to that position
+	vec3 camera_pos = vec3(viewInverse * vec4(0.0));
+
+	vec3 dir = normalize(pixel_world_pos.xyz - camera_pos);
+
+	//Calculate the spherical coordinates of the direction
+	float theta = acos(max(-1.0f, min(1.0f, dir.y)));
+	float phi = atan(dir.z, dir.x);
+	if(phi < 0.0f)
+	{
+		phi = phi + 2.0f * PI;
+	}
+
+	// Use these to lookup the color in the environment map
+	vec2 lookup = vec2(phi / (2.0 * PI), theta / PI);
+	vec4 irradiance = environment_multiplier * texture(irradianceMap, lookup);
+
+	vec4 diffuse_term = vec4 (material_color,0) * (1.0 / PI) * irradiance;
 	///////////////////////////////////////////////////////////////////////////
 	// Task 6 - Look up in the reflection map from the perfect specular
 	//          direction and calculate the dielectric and metal terms.
 	///////////////////////////////////////////////////////////////////////////
 
-	return indirect_illum;
+	//return indirect_illum;
+	return vec3(diffuse_term);
 }
 
 
