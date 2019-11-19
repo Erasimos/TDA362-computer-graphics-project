@@ -94,6 +94,7 @@ vec3 calculateDirectIllumiunation(vec3 wo, vec3 n, vec3 base_color)
 	vec3 Wh = normalize(Wi + wo);	
 	float wodotwh = max(0.0, dot(wo, Wh));
 	float ndotwh = max(0.0, dot(n, Wh));
+	float whdotwi = max(0.0, dot(Wh, Wi));
 
 	// The fresnel term
 	float R0 = material_fresnel;
@@ -147,17 +148,10 @@ vec3 calculateIndirectIllumination(vec3 wo, vec3 n, vec3 base_color)
 	///////////////////////////////////////////////////////////////////////////
 
 	// World space normal
-	vec3 nws = vec3 (viewInverse * vec4(n,1.0f));
+	vec3 nws = vec3 (viewInverse * vec4(n,0.0f));
 
-
-	// Calculate the world-space position of this fragment on the near plane
-	vec4 pixel_world_pos = viewInverse * vec4(texCoord * 2.0 - 1.0, 1.0, 1.0);
-	pixel_world_pos = (1.0 / pixel_world_pos.w) * pixel_world_pos;
-
-	// Calculate the world-space direction from the camera to that position
-	vec3 camera_pos = vec3(viewInverse * vec4(0.0));
-
-	vec3 dir = normalize(pixel_world_pos.xyz - camera_pos);
+	//vec3 dir = normalize(pixel_world_pos.xyz - camera_pos);
+	vec3 dir = nws;
 
 	//Calculate the spherical coordinates of the direction
 	float theta = acos(max(-1.0f, min(1.0f, dir.y)));
@@ -170,15 +164,46 @@ vec3 calculateIndirectIllumination(vec3 wo, vec3 n, vec3 base_color)
 	// Use these to lookup the color in the environment map
 	vec2 lookup = vec2(phi / (2.0 * PI), theta / PI);
 	vec4 irradiance = environment_multiplier * texture(irradianceMap, lookup);
-
-	vec4 diffuse_term = vec4 (material_color,0) * (1.0 / PI) * irradiance;
+	vec4 diffuse_term = vec4 (material_color,1) * (1.0 / PI) * irradiance;
+	//return vec3(diffuse_term);
 	///////////////////////////////////////////////////////////////////////////
 	// Task 6 - Look up in the reflection map from the perfect specular
 	//          direction and calculate the dielectric and metal terms.
 	///////////////////////////////////////////////////////////////////////////
+	
+	// The spherical coordinates
+	vec3 wi = normalize(- reflect(wo,n));
+	dir = normalize (vec3(viewInverse * vec4 (wi,0.0f)));
 
-	//return indirect_illum;
-	return vec3(diffuse_term);
+	theta = acos(max(-1.0f, min(1.0f, dir.y)));
+	phi = atan(dir.z, dir.x);
+	if(phi < 0.0f)
+	{
+		phi = phi + 2.0f * PI;
+	}
+
+	// Use these to lookup the color in the environment map
+	lookup = vec2(phi / (2.0 * PI), theta / PI);
+
+	float s = material_shininess;
+	float roughness = sqrt(sqrt(2/(s+2)));
+	vec3 Li = environment_multiplier * textureLod(reflectionMap,lookup,roughness * 7.0).xyz; 
+
+	vec3 wh = normalize(wi + wo);
+	float whdotwi = max(0.0,dot(wh,wi));
+
+	// The fresnel term
+	float R0 = material_fresnel;
+	float F = R0 + (1.0 - R0)*pow((1.0 - whdotwi),5.0);
+	
+	vec3 dielectric_term = F * Li * (1 - F) * vec3(diffuse_term);
+	vec3 metal_term = F * material_color * Li;
+
+	// Microfacet term
+	float m = material_metalness;
+	vec3 micro_facet_term = m * metal_term + (1 - m) * dielectric_term;
+	float r = material_reflectivity;
+	return r * micro_facet_term + (1 - r) * vec3(diffuse_term);	
 }
 
 
