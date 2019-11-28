@@ -6,6 +6,7 @@
 #include "material.h"
 #include "embree.h"
 #include "sampling.h"
+#include <glm/gtx/transform.hpp>
 
 using namespace std;
 using namespace glm;
@@ -73,9 +74,27 @@ vec3 Li(Ray& primary_ray)
 	// Create a Material tree for evaluating brdfs and calculating
 	// sample directions.
 	///////////////////////////////////////////////////////////////////
-
+	//TASK 3
 	Diffuse diffuse(hit.material->m_color);
-	BRDF& mat = diffuse;
+	BlinnPhong dielectric(hit.material->m_shininess, hit.material->m_fresnel, &diffuse);
+	BRDF& mat = dielectric;
+
+	//Diffuse diffuse(hit.material->m_color);
+	//BRDF& mat = diffuse;
+
+	//TASK 2
+	Ray shadowRay;
+	mat4 surfaceOffset = translate(EPSILON*hit.shading_normal);
+	shadowRay.o = surfaceOffset * vec4(hit.position,1.0f);
+	shadowRay.d = normalize(point_light.position - hit.position);
+
+	// if occluded add shadows
+	if (occluded(shadowRay))
+	{
+		
+		return L;
+	}
+
 	///////////////////////////////////////////////////////////////////
 	// Calculate Direct Illumination from light.
 	///////////////////////////////////////////////////////////////////
@@ -127,6 +146,18 @@ void tracePaths(const glm::mat4& V, const glm::mat4& P)
 			// the current pixel on a virtual screen.
 			vec2 screenCoord = vec2(float(x) / float(rendered_image.width),
 			                        float(y) / float(rendered_image.height));
+
+			// TASK 1
+			// Add jittering
+			float pixel_width = 2.0f / rendered_image.width;
+			float pixel_height = 2.0f / rendered_image.height;
+			
+			float delta_x = randf() * pixel_width;
+			float delta_y = randf() * pixel_height;
+
+			screenCoord.x += delta_x;
+			screenCoord.x += delta_y;
+
 			// Calculate direction
 			vec4 viewCoord = vec4(screenCoord.x * 2.0f - 1.0f, screenCoord.y * 2.0f - 1.0f, 1.0f, 1.0f);
 			vec3 p = homogenize(inverse(P * V) * viewCoord);

@@ -33,11 +33,59 @@ vec3 Diffuse::sample_wi(vec3& wi, const vec3& wo, const vec3& n, float& p)
 ///////////////////////////////////////////////////////////////////////////
 vec3 BlinnPhong::refraction_brdf(const vec3& wi, const vec3& wo, const vec3& n)
 {
-	return vec3(0.0f);
+	// Constants
+	vec3 wh = normalize(wi + wo);
+	float whdotwi = dot(wh, wi);
+	float ndotwi = dot(n, wi);
+	float ndotwo = dot(n, wo);
+	float denom = (4.0f * ndotwo * ndotwi);
+	if (denom <= 0.0f) { return vec3(0.0f); }
+
+	// The fresnel term
+	float F = R0 + (1 - R0) * pow((1.0f - whdotwi), 5.0f);
+
+
+	if (refraction_layer == NULL)
+	{
+		return vec3(0.0f);
+	}
+
+	vec3 refractLayer = refraction_layer->f(wi, wo, n);
+	vec3 brfd = (1 - F) * refractLayer;
+	return brfd;
 }
 vec3 BlinnPhong::reflection_brdf(const vec3& wi, const vec3& wo, const vec3& n)
 {
-	return vec3(0.0f);
+	// Constants
+	vec3 wh = normalize(wi + wo);
+	float whdotwi = dot(wh, wi);
+	float ndotwh = dot(n, wh);
+	float ndotwi = dot(n, wi);
+	float ndotwo = dot(n, wo);
+	float wodotwh = dot(wo, wh);
+	float s = shininess;
+	float denom = (4.0f * ndotwo * ndotwi);
+	if (denom <= 0.0f) { return vec3(0.0f); }
+
+	// The fresnel term
+	float F = R0 + (1.0f - R0) * pow((1.0f - whdotwi), 5.0f);
+
+	// Microfacet distribution
+	float D = ((s + 2.0f) / (2.0f * M_PI)) * pow(ndotwh, s);
+
+	// A
+	float A = 2.0f * ndotwh * ndotwo / wodotwh;
+
+	// B
+	float B = 2.0f * ndotwh * ndotwi / wodotwh;
+
+	// Shadowing/Masking function
+	float G = min(1.0f, min(A, B));
+
+	// brdf
+	float brdf = F * D * G / denom;
+
+	return vec3(brdf);
 }
 
 vec3 BlinnPhong::f(const vec3& wi, const vec3& wo, const vec3& n)
