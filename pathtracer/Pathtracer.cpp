@@ -75,12 +75,21 @@ vec3 Li(Ray& primary_ray)
 	// sample directions.
 	///////////////////////////////////////////////////////////////////
 	//TASK 3
-	Diffuse diffuse(hit.material->m_color);
-	BlinnPhong dielectric(hit.material->m_shininess, hit.material->m_fresnel, &diffuse);
-	BRDF& mat = dielectric;
+	//Diffuse diffuse(hit.material->m_color);
+	//BlinnPhong dielectric(hit.material->m_shininess, hit.material->m_fresnel, &diffuse);
+	//BRDF& mat = dielectric;
 
 	//Diffuse diffuse(hit.material->m_color);
 	//BRDF& mat = diffuse;
+
+	// TASK 4
+	Diffuse diffuse(hit.material->m_color);
+	BlinnPhong dielectric(hit.material->m_shininess, hit.material->m_fresnel, &diffuse);
+	BlinnPhongMetal metal(hit.material->m_color, hit.material->m_shininess,
+		hit.material->m_fresnel);
+	LinearBlend metal_blend(hit.material->m_metalness, &metal, &dielectric);
+	LinearBlend reflectivity_blend(hit.material->m_reflectivity, &metal_blend, &diffuse);
+	BRDF& mat = reflectivity_blend;
 
 	//TASK 2
 	Ray shadowRay;
@@ -91,7 +100,6 @@ vec3 Li(Ray& primary_ray)
 	// if occluded add shadows
 	if (occluded(shadowRay))
 	{
-		
 		return L;
 	}
 
