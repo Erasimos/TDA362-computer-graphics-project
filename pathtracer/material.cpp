@@ -34,21 +34,18 @@ vec3 Diffuse::sample_wi(vec3& wi, const vec3& wo, const vec3& n, float& p)
 vec3 BlinnPhong::refraction_brdf(const vec3& wi, const vec3& wo, const vec3& n)
 {
 	// Constants
-	vec3 wh = normalize(wi + wo);
-	float whdotwi = dot(wh, wi);
-	float ndotwi = dot(n, wi);
-	float ndotwo = dot(n, wo);
-	float denom = (4.0f * ndotwo * ndotwi);
-	if (denom <= 0.0f) { return vec3(0.0f); }
-
-	// The fresnel term
-	float F = R0 + (1 - R0) * pow((1.0f - whdotwi), 5.0f);
-
 
 	if (refraction_layer == NULL)
 	{
 		return vec3(0.0f);
 	}
+
+	vec3 wh = normalize(wi + wo);
+	float whdotwi = max(0.0f, dot(wh, wi));
+
+	// The fresnel term
+	float F = R0 + (1 - R0) * pow((1.0f - whdotwi), 5.0f);
+
 
 	vec3 refractLayer = refraction_layer->f(wi, wo, n);
 	vec3 brfd = (1 - F) * refractLayer;
@@ -58,11 +55,11 @@ vec3 BlinnPhong::reflection_brdf(const vec3& wi, const vec3& wo, const vec3& n)
 {
 	// Constants
 	vec3 wh = normalize(wi + wo);
-	float whdotwi = dot(wh, wi);
-	float ndotwh = dot(n, wh);
-	float ndotwi = dot(n, wi);
-	float ndotwo = dot(n, wo);
-	float wodotwh = dot(wo, wh);
+	float whdotwi = max(0.0f, dot(wh, wi));
+	float ndotwh = max(0.0f, dot(n, wh));
+	float ndotwi = max(0.0f, dot(n, wi));
+	float ndotwo = max(0.0f, dot(n, wo));
+	float wodotwh = max(0.0f,dot(wo, wh));
 	float s = shininess;
 	float denom = (4.0f * ndotwo * ndotwi);
 	if (denom <= 0.0f) { return vec3(0.0f); }
@@ -104,6 +101,25 @@ vec3 BlinnPhong::sample_wi(vec3& wi, const vec3& wo, const vec3& n, float& p)
 	else
 		p = max(0.0f, dot(n, wi)) / M_PI;
 	return f(wi, wo, n);
+
+	// TASK 6
+	/*
+	if (randf() < 0.5) {
+		// Sample a direction based on the Microfacet brdf
+		(wi, pdf) < -<...>
+			pdf = pdf * 0.5;
+		return reflection_brdf(wi, wo, n);
+	}
+	else {
+		// Sample a direction for the underlying layer
+		(wi, brdf, pdf) < -refraction_layer->sample_wi(...);
+		pdf = pdf * 0.5;
+		// We need to attenuate the refracted brdf with (1 - F)
+		F < -R0 + (1.0f - R0) * pow(1.0f - abs(dot(wh, wi)), 5.0f);
+		return (1 - F) * brdf;
+	}
+	*/
+
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -123,7 +139,8 @@ vec3 BlinnPhongMetal::reflection_brdf(const vec3& wi, const vec3& wo, const vec3
 ///////////////////////////////////////////////////////////////////////////
 vec3 LinearBlend::f(const vec3& wi, const vec3& wo, const vec3& n)
 {
-	return vec3(0.0);
+	// TASK 4
+	return w*bsdf0->f(wi,wo,n) + (1 - w)*bsdf1->f(wi,wo,n);
 }
 
 vec3 LinearBlend::sample_wi(vec3& wi, const vec3& wo, const vec3& n, float& p)

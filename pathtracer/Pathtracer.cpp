@@ -62,6 +62,96 @@ vec3 Lenvironment(const vec3& wi)
 ///////////////////////////////////////////////////////////////////////////
 vec3 Li(Ray& primary_ray)
 {
+	// TASK 5 
+	
+	vec3 L = vec3(0.0f);
+	vec3 path_throughput = vec3(1.0);
+	Ray current_ray = primary_ray;
+	for (int bounces = 0; bounces <= settings.max_bounces; bounces ++)
+	{
+		// Get the intersection information from the ray
+		Intersection hit = getIntersection(current_ray);
+		
+		// Create a Material tree
+		//Diffuse diffuse(hit.material->m_color);
+		//BRDF& mat = diffuse;
+		
+		Diffuse diffuse(hit.material->m_color);
+		BlinnPhong dielectric(hit.material->m_shininess, hit.material->m_fresnel, &diffuse);
+		BRDF& mat = dielectric;
+	
+		/*
+		Diffuse diffuse(hit.material->m_color);
+		BlinnPhong dielectric(hit.material->m_shininess, hit.material->m_fresnel, &diffuse);
+		BlinnPhongMetal metal(hit.material->m_color, hit.material->m_shininess,
+			hit.material->m_fresnel);
+		LinearBlend metal_blend(hit.material->m_metalness, &metal, &dielectric);
+		LinearBlend reflectivity_blend(hit.material->m_reflectivity, &metal_blend, &diffuse);
+		BRDF& mat = reflectivity_blend;
+		*/
+
+		// Direct illumination
+		Ray shadowRay(hit.position + EPSILON * hit.geometry_normal, normalize(point_light.position - hit.position));
+		
+		// if not occluded add direct light
+		if (!occluded(shadowRay))
+		{
+			///////////////////////////////////////////////////////////////////
+			// Calculate Direct Illumination from light.
+			///////////////////////////////////////////////////////////////////
+			const float distance_to_light = length(point_light.position - hit.position);
+			const float falloff_factor = 1.0f / (distance_to_light * distance_to_light);
+			vec3 Li = point_light.intensity_multiplier * point_light.color * falloff_factor;
+			vec3 wi = normalize(point_light.position - hit.position);
+			vec3 direct_illum = mat.f(wi, hit.wo, hit.shading_normal) * Li * std::max(0.0f, dot(wi, hit.shading_normal));
+			L += path_throughput * direct_illum;
+		}
+
+
+		// Add emitted radiance from intersection
+		//L += path_throughput * emitted light
+		float emitted_light = hit.material->m_emission;
+		L += path_throughput * emitted_light * hit.material->m_color;
+
+		// Sample an incoming direction (and the brdf and pdf for that direction)
+		//(wi, brdf, pdf) < -mat.sample_wi(hit.wo, hit.shading_normal)
+		vec3 wi;
+		float p;
+		vec3 brdf = mat.sample_wi(wi,hit.wo, hit.shading_normal, p);
+
+
+		float cosineterm = abs(dot(wi, hit.shading_normal));
+
+		if (p < EPSILON) return L;
+
+		path_throughput = path_throughput * (brdf * cosineterm) / p;
+
+
+		// If pathThroughput is zero there is no need to continue
+		if (path_throughput == vec3(0.0f))
+		{
+			return L;
+		}
+
+		// Create next ray on path (existing instance can't be reused)
+		// Create new ray instance from intersection point in outgoing direction
+		current_ray = Ray(hit.position, wi);
+	
+		// Bias the ray slightly to avoid self-intersection 
+		if (dot(hit.geometry_normal, wi) >= 0 )
+			current_ray.o += EPSILON * hit.geometry_normal;
+		else
+			current_ray.o -= EPSILON * hit.geometry_normal;
+
+		// Intersect the new ray and if there is no intersection just
+		// add environment contribution and finish
+		if (!intersect(current_ray))
+			L += path_throughput * Lenvironment(current_ray.d);
+			return L;
+
+			// Otherwise, reiterate for the new intersection
+	}
+	/*
 	vec3 L = vec3(0.0f);
 	vec3 path_throughput = vec3(1.0);
 	Ray current_ray = primary_ray;
@@ -81,7 +171,7 @@ vec3 Li(Ray& primary_ray)
 
 	//Diffuse diffuse(hit.material->m_color);
 	//BRDF& mat = diffuse;
-
+	
 	// TASK 4
 	Diffuse diffuse(hit.material->m_color);
 	BlinnPhong dielectric(hit.material->m_shininess, hit.material->m_fresnel, &diffuse);
@@ -90,31 +180,31 @@ vec3 Li(Ray& primary_ray)
 	LinearBlend metal_blend(hit.material->m_metalness, &metal, &dielectric);
 	LinearBlend reflectivity_blend(hit.material->m_reflectivity, &metal_blend, &diffuse);
 	BRDF& mat = reflectivity_blend;
+	
 
 	//TASK 2
 	Ray shadowRay;
-	mat4 surfaceOffset = translate(EPSILON*hit.shading_normal);
-	shadowRay.o = surfaceOffset * vec4(hit.position,1.0f);
+	//mat4 surfaceOffset = translate(EPSILON*hit.geometry_normal);
+	//shadowRay.o = surfaceOffset * vec4(hit.position,1.0f);
+	shadowRay.o = hit.position + EPSILON * hit.geometry_normal;
 	shadowRay.d = normalize(point_light.position - hit.position);
 
 	// if occluded add shadows
-	if (occluded(shadowRay))
+	if (!occluded(shadowRay))
 	{
-		return L;
-	}
-
-	///////////////////////////////////////////////////////////////////
-	// Calculate Direct Illumination from light.
-	///////////////////////////////////////////////////////////////////
-	{
+		///////////////////////////////////////////////////////////////////
+		// Calculate Direct Illumination from light.
+		///////////////////////////////////////////////////////////////////
 		const float distance_to_light = length(point_light.position - hit.position);
 		const float falloff_factor = 1.0f / (distance_to_light * distance_to_light);
 		vec3 Li = point_light.intensity_multiplier * point_light.color * falloff_factor;
 		vec3 wi = normalize(point_light.position - hit.position);
 		L = mat.f(wi, hit.wo, hit.shading_normal) * Li * std::max(0.0f, dot(wi, hit.shading_normal));
 	}
+	
 	// Return the final outgoing radiance for the primary ray
 	return L;
+	*/
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -142,6 +232,7 @@ void tracePaths(const glm::mat4& V, const glm::mat4& P)
 	int num_rays = 0;
 	vector<vec4> local_image(rendered_image.width * rendered_image.height, vec4(0.0f));
 
+
 #pragma omp parallel for
 	for(int y = 0; y < rendered_image.height; y++)
 	{
@@ -157,14 +248,14 @@ void tracePaths(const glm::mat4& V, const glm::mat4& P)
 
 			// TASK 1
 			// Add jittering
-			float pixel_width = 2.0f / rendered_image.width;
-			float pixel_height = 2.0f / rendered_image.height;
+			float pixel_width = 1.0f / rendered_image.width;
+			float pixel_height = 1.0f / rendered_image.height;
 			
 			float delta_x = randf() * pixel_width;
 			float delta_y = randf() * pixel_height;
 
 			screenCoord.x += delta_x;
-			screenCoord.x += delta_y;
+			screenCoord.y += delta_y;
 
 			// Calculate direction
 			vec4 viewCoord = vec4(screenCoord.x * 2.0f - 1.0f, screenCoord.y * 2.0f - 1.0f, 1.0f, 1.0f);
